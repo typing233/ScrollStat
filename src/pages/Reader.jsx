@@ -35,14 +35,97 @@ function Reader() {
   const getFilteredNodes = useCallback(() => {
     if (!story) return []
     
-    const decisions = Object.values(branchDecisions)
+    const branchNodes = story.nodes.filter(n => n.type === 'branch')
     const skippedNodes = new Set()
     
-    story.branches?.forEach(branch => {
-      branch.options.forEach(option => {
-        const isSelected = branchDecisions[branch.fromNodeId] === option.id
-        if (!isSelected && option.nextNodeId) {
+    const buildBranchOptionMapping = () => {
+      const optionIdToNextNodeId = new Map()
+      const branchToOptions = new Map()
+      
+      branchNodes.forEach(branchNode => {
+        const optionIds = []
+        branchNode.options?.forEach(option => {
+          if (option.nextNodeId) {
+            optionIdToNextNodeId.set(option.id, option.nextNodeId)
+          }
+          optionIds.push(option.id)
+        })
+        branchToOptions.set(branchNode.id, optionIds)
+      })
+      
+      return { optionIdToNextNodeId, branchToOptions }
+    }
+    
+    const buildParallelNodesMap = () => {
+      const positionToNodes = new Map()
+      story.nodes.forEach(node => {
+        const pos = node.position
+        if (!positionToNodes.has(pos)) {
+          positionToNodes.set(pos, [])
+        }
+        positionToNodes.get(pos).push(node)
+      })
+      return positionToNodes
+    }
+    
+    const { optionIdToNextNodeId, branchToOptions } = buildBranchOptionMapping()
+    const positionToNodes = buildParallelNodesMap()
+    
+    const nextNodeIdToOptionId = new Map()
+    optionIdToNextNodeId.forEach((nextNodeId, optionId) => {
+      nextNodeIdToOptionId.set(nextNodeId, optionId)
+    })
+    
+    const nodeIdToBranch = new Map()
+    branchNodes.forEach(branchNode => {
+      branchNode.options?.forEach(option => {
+        if (option.nextNodeId) {
+          nodeIdToBranch.set(option.nextNodeId, {
+            branchNodeId: branchNode.id,
+            optionId: option.id
+          })
+        }
+      })
+    })
+    
+    const branchNodesOrder = [...branchNodes].sort((a, b) => a.position - b.position)
+    
+    branchNodesOrder.forEach(branchNode => {
+      const selectedOptionId = branchDecisions[branchNode.id]
+      
+      branchNode.options?.forEach(option => {
+        if (!option.nextNodeId) return
+        
+        const isSelected = selectedOptionId === option.id
+        
+        if (!isSelected && selectedOptionId) {
           skippedNodes.add(option.nextNodeId)
+          
+          const nextNode = story.nodes.find(n => n.id === option.nextNodeId)
+          if (nextNode) {
+            const nextPosition = nextNode.position
+            positionToNodes.get(nextPosition)?.forEach(node => {
+              if (node.id !== option.nextNodeId) {
+                const nodeBranchInfo = nodeIdToBranch.get(node.id)
+                if (nodeBranchInfo) {
+                  if (nodeBranchInfo.branchNodeId === branchNode.id && 
+                      nodeBranchInfo.optionId !== selectedOptionId) {
+                    skippedNodes.add(node.id)
+                  }
+                }
+              }
+            })
+          }
+        }
+        
+        if (!isSelected && !selectedOptionId) {
+          if (branchNode.options?.[0]?.id === option.id) {
+          } else {
+            const firstOptionNextNodeId = branchNode.options?.[0]?.nextNodeId
+            if (firstOptionNextNodeId && option.nextNodeId !== firstOptionNextNodeId) {
+              skippedNodes.add(option.nextNodeId)
+            }
+          }
         }
       })
     })

@@ -825,42 +825,124 @@ function StoryEditor() {
                         {node.type === 'branch' && (
                           <div className="space-y-4">
                             <p className="text-sm text-gray-600">添加岔路口选项，让读者选择不同的叙事路径：</p>
-                            <div className="space-y-3">
-                              {node.options?.map((option, optIndex) => (
-                                <div
-                                  key={option.id}
-                                  className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl"
-                                >
-                                  <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center font-semibold text-sm">
-                                    {String.fromCharCode(65 + optIndex)}
-                                  </span>
-                                  <input
-                                    type="text"
-                                    value={option.label}
-                                    onChange={(e) => {
-                                      const newOptions = [...node.options]
-                                      newOptions[optIndex] = { ...option, label: e.target.value }
-                                      handleUpdateNode(node.id, { options: newOptions })
-                                    }}
-                                    placeholder="选项标签"
-                                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                  />
-                                  {node.options.length > 2 && (
-                                    <button
-                                      onClick={() => {
-                                        const newOptions = node.options.filter((_, i) => i !== optIndex)
-                                        handleUpdateNode(node.id, { options: newOptions })
-                                      }}
-                                      className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                      </svg>
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
+                            
+                            <div className="mb-4 p-4 bg-blue-50 rounded-xl">
+                              <p className="text-sm font-medium text-blue-800 mb-2">📋 使用说明：</p>
+                              <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
+                                <li>每个选项可以关联一个"跳转目标节点"（nextNodeId）</li>
+                                <li>同一 position 的多个节点会被视为"平行节点"，只能显示一个</li>
+                                <li>读者选择选项后，会显示该选项关联的节点，隐藏其他选项的节点</li>
+                              </ul>
                             </div>
+                            
+                            <div className="space-y-4">
+                              {node.options?.map((option, optIndex) => {
+                                const otherNodes = story.nodes.filter(n => n.id !== node.id)
+                                
+                                return (
+                                  <div
+                                    key={option.id}
+                                    className="p-4 bg-gray-50 rounded-xl border border-gray-200"
+                                  >
+                                    <div className="flex items-center gap-3 mb-3">
+                                      <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center font-semibold text-sm">
+                                        {String.fromCharCode(65 + optIndex)}
+                                      </span>
+                                      <input
+                                        type="text"
+                                        value={option.label}
+                                        onChange={(e) => {
+                                          const newOptions = [...node.options]
+                                          newOptions[optIndex] = { ...option, label: e.target.value }
+                                          handleUpdateNode(node.id, { options: newOptions })
+                                        }}
+                                        placeholder="选项标签（如：📊 销售分析）"
+                                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                      />
+                                      {node.options.length > 2 && (
+                                        <button
+                                          onClick={() => {
+                                            const newOptions = node.options.filter((_, i) => i !== optIndex)
+                                            handleUpdateNode(node.id, { options: newOptions })
+                                          }}
+                                          className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
+                                          title="删除选项"
+                                        >
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                          </svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="grid md:grid-cols-2 gap-4">
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          跳转目标节点 (nextNodeId)
+                                        </label>
+                                        <select
+                                          value={option.nextNodeId || ''}
+                                          onChange={(e) => {
+                                            const newOptions = [...node.options]
+                                            newOptions[optIndex] = { 
+                                              ...option, 
+                                              nextNodeId: e.target.value || undefined 
+                                            }
+                                            handleUpdateNode(node.id, { options: newOptions })
+                                          }}
+                                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                        >
+                                          <option value="">-- 不设置跳转节点 --</option>
+                                          {otherNodes.map((n, idx) => (
+                                            <option key={n.id} value={n.id}>
+                                              [{n.position}] {n.type === 'text' ? '📝 文本节点' : n.type === 'chart' ? `📊 图表: ${n.chartConfig?.title || '未命名'}` : n.type === 'branch' ? '🔀 岔路口' : '未知节点'}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                      
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          选项描述
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={option.description || ''}
+                                          onChange={(e) => {
+                                            const newOptions = [...node.options]
+                                            newOptions[optIndex] = { ...option, description: e.target.value }
+                                            handleUpdateNode(node.id, { options: newOptions })
+                                          }}
+                                          placeholder="简短描述这个选项的内容"
+                                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                        />
+                                      </div>
+                                    </div>
+                                    
+                                    {option.nextNodeId && (
+                                      <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                                        <p className="text-sm text-green-700">
+                                          ✅ 已关联节点：
+                                          <span className="font-medium ml-1">
+                                            {(() => {
+                                              const targetNode = story.nodes.find(n => n.id === option.nextNodeId)
+                                              if (targetNode) {
+                                                return `[Position ${targetNode.position}] ${targetNode.type === 'text' ? '📝 文本节点' : targetNode.type === 'chart' ? `📊 ${targetNode.chartConfig?.title || '图表'}` : '🔀 岔路口'}`
+                                              }
+                                              return '节点不存在'
+                                            })()}
+                                          </span>
+                                        </p>
+                                        <p className="text-xs text-green-600 mt-1">
+                                          提示：如果有其他节点使用相同的 position，它们会被视为平行节点，只有选中选项对应的节点会显示
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            
                             {node.options?.length < 4 && (
                               <button
                                 onClick={() => {
@@ -872,9 +954,38 @@ function StoryEditor() {
                                 + 添加选项
                               </button>
                             )}
-                            <div className="mt-6 p-4 bg-yellow-50 rounded-xl text-sm text-yellow-700">
-                              <p className="font-medium">💡 提示：</p>
-                              <p>岔路口节点后的节点可以设置不同的 nextNodeId 来实现分支跳转。在实际应用中，您可以为每个选项指定跳转的目标节点。</p>
+                            
+                            <div className="mt-6 p-4 bg-gray-100 rounded-xl">
+                              <p className="text-sm font-medium text-gray-700 mb-3">📖 当前节点列表（参考用）：</p>
+                              <div className="space-y-2 max-h-48 overflow-y-auto">
+                                {story.nodes?.map((n, idx) => (
+                                  <div 
+                                    key={n.id} 
+                                    className={`flex items-center p-2 rounded-lg text-sm ${
+                                      n.id === node.id 
+                                        ? 'bg-blue-100 text-blue-800' 
+                                        : 'bg-white border border-gray-200'
+                                    }`}
+                                  >
+                                    <span className="w-8 h-6 bg-gray-200 rounded flex items-center justify-center text-xs font-mono mr-2">
+                                      {n.position}
+                                    </span>
+                                    <span className="mr-2">
+                                      {n.type === 'text' && '📝'}
+                                      {n.type === 'chart' && '📊'}
+                                      {n.type === 'branch' && '🔀'}
+                                    </span>
+                                    <span className="flex-1 truncate">
+                                      {n.type === 'text' ? (n.content?.substring(0, 30) || '文本节点') : 
+                                       n.type === 'chart' ? (n.chartConfig?.title || '图表节点') : 
+                                       n.type === 'branch' ? `岔路口 (${n.options?.length || 0}个选项)` : '未知节点'}
+                                    </span>
+                                    <span className="text-xs text-gray-400 font-mono ml-2">
+                                      {n.id.substring(0, 12)}...
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         )}
