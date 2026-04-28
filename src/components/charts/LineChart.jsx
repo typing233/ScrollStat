@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useId } from 'react'
 import * as d3 from 'd3'
 import { motion } from 'framer-motion'
 
@@ -13,6 +13,8 @@ function LineChart({
 }) {
   const svgRef = useRef(null)
   const containerRef = useRef(null)
+  const uid = useId()
+  const gradientId = `areaGradient-${uid.replace(/:/g, '')}`
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0) return
@@ -124,7 +126,7 @@ function LineChart({
 
     const gradient = svg.append('defs')
       .append('linearGradient')
-      .attr('id', 'areaGradient')
+      .attr('id', gradientId)
       .attr('x1', '0%')
       .attr('y1', '0%')
       .attr('x2', '0%')
@@ -140,7 +142,7 @@ function LineChart({
 
     const areaPath = svg.append('path')
       .datum(data)
-      .attr('fill', 'url(#areaGradient)')
+      .attr('fill', `url(#${gradientId})`)
       .attr('d', area)
 
     const linePath = svg.append('path')
@@ -269,7 +271,7 @@ function LineChart({
     return () => {
       tooltip.remove()
     }
-  }, [data, xAxis, yAxis, secondaryYAxis, animation])
+  }, [data, xAxis, yAxis, secondaryYAxis, animation, gradientId])
 
   return (
     <motion.div 

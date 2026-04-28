@@ -1,10 +1,12 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useId } from 'react'
 import * as d3 from 'd3'
 import { motion } from 'framer-motion'
 
 function BarChart({ data, xAxis, yAxis, title, description, animation = true }) {
   const svgRef = useRef(null)
   const containerRef = useRef(null)
+  const uid = useId()
+  const gradientId = `barGradient-${uid.replace(/:/g, '')}`
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0) return
@@ -72,13 +74,13 @@ function BarChart({ data, xAxis, yAxis, title, description, animation = true }) 
       .join('rect')
       .attr('x', d => x(d[xAxis]))
       .attr('width', x.bandwidth())
-      .attr('fill', 'url(#barGradient)')
+      .attr('fill', `url(#${gradientId})`)
       .attr('rx', 4)
       .style('cursor', 'pointer')
 
     const gradient = svg.append('defs')
       .append('linearGradient')
-      .attr('id', 'barGradient')
+      .attr('id', gradientId)
       .attr('x1', '0%')
       .attr('y1', '0%')
       .attr('x2', '0%')
@@ -131,7 +133,7 @@ function BarChart({ data, xAxis, yAxis, title, description, animation = true }) 
         d3.select(this)
           .transition()
           .duration(200)
-          .attr('fill', 'url(#barGradient)')
+          .attr('fill', `url(#${gradientId})`)
 
         tooltip.style('opacity', 0)
       })
@@ -139,7 +141,7 @@ function BarChart({ data, xAxis, yAxis, title, description, animation = true }) 
     return () => {
       tooltip.remove()
     }
-  }, [data, xAxis, yAxis, animation])
+  }, [data, xAxis, yAxis, animation, gradientId])
 
   return (
     <motion.div 
