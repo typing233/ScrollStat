@@ -4,8 +4,12 @@ const STORAGE_KEY = 'scrollstat_stories'
 
 export const storage = {
   getStories: () => {
-    const data = localStorage.getItem(STORAGE_KEY)
-    return data ? JSON.parse(data) : []
+    try {
+      const data = localStorage.getItem(STORAGE_KEY)
+      return data ? JSON.parse(data) : []
+    } catch {
+      return []
+    }
   },
 
   saveStories: (stories) => {

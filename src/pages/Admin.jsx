@@ -194,6 +194,7 @@ function CreateStory() {
 
 function StoryEditor() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [story, setStory] = useState(null)
   const [activeTab, setActiveTab] = useState('overview')
   const [isImporting, setIsImporting] = useState(false)
@@ -203,8 +204,10 @@ function StoryEditor() {
     const storyData = storage.getStory(id)
     if (storyData) {
       setStory(storyData)
+    } else {
+      navigate('/admin')
     }
-  }, [id])
+  }, [id, navigate])
 
   const refreshStory = () => {
     const storyData = storage.getStory(id)
@@ -260,10 +263,11 @@ function StoryEditor() {
     
     let newNode
     switch (type) {
-      case 'text':
+      case 'text': {
         newNode = createTextNode('在这里输入您的文本内容...', position)
         break
-      case 'chart':
+      }
+      case 'chart': {
         if (story.datasets.length === 0) {
           alert('请先导入数据集')
           return
@@ -279,13 +283,15 @@ function StoryEditor() {
         })
         newNode = createChartNode(config, position)
         break
-      case 'branch':
+      }
+      case 'branch': {
         const options = [
           createBranchOption('选项 A'),
           createBranchOption('选项 B')
         ]
         newNode = createBranchNode(options, position)
         break
+      }
       default:
         return
     }

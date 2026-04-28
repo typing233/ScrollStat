@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { storage } from '../data/storage'
@@ -133,7 +133,7 @@ function Reader() {
     return story.nodes.filter(node => !skippedNodes.has(node.id))
   }, [story, branchDecisions])
 
-  const filteredNodes = getFilteredNodes()
+  const filteredNodes = useMemo(() => getFilteredNodes(), [getFilteredNodes])
 
   useEffect(() => {
     if (filteredNodes.length > 0) {
@@ -248,7 +248,13 @@ function Reader() {
             return <br key={index} />
           }
           
-          const processedLine = trimmedLine
+          const escapedLine = trimmedLine
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;')
+          const processedLine = escapedLine
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
           
