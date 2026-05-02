@@ -10,6 +10,7 @@ function loadTrackingData(storyId) {
       return parsed[storyId] || {
         nodeDurations: {},
         revisitCounts: {},
+        visitedNodeIds: [],
         visitHistory: [],
         totalTime: 0,
         lastActiveNode: null,
@@ -22,6 +23,7 @@ function loadTrackingData(storyId) {
   return {
     nodeDurations: {},
     revisitCounts: {},
+    visitedNodeIds: [],
     visitHistory: [],
     totalTime: 0,
     lastActiveNode: null,
@@ -41,13 +43,14 @@ function saveTrackingData(storyId, data) {
 
 export function useViewTracking(storyId) {
   const [trackingData, setTrackingData] = useState(() => loadTrackingData(storyId))
-  const timerRef = useRef(null)
   const currentNodeRef = useRef(null)
   const nodeEnterTimeRef = useRef(null)
 
   useEffect(() => {
     const newData = loadTrackingData(storyId)
     setTrackingData(newData)
+    currentNodeRef.current = null
+    nodeEnterTimeRef.current = null
   }, [storyId])
 
   useEffect(() => {
@@ -81,9 +84,15 @@ export function useViewTracking(storyId) {
     
     if (nodeId !== currentNodeRef.current) {
       setTrackingData(prev => {
-        const revisitCounts = { ...prev.revisitCounts }
-        if (currentNodeRef.current !== null) {
+        let revisitCounts = { ...prev.revisitCounts }
+        let visitedNodeIds = [...prev.visitedNodeIds]
+        
+        if (visitedNodeIds.includes(nodeId)) {
           revisitCounts[nodeId] = (revisitCounts[nodeId] || 0) + 1
+        }
+        
+        if (!visitedNodeIds.includes(nodeId)) {
+          visitedNodeIds.push(nodeId)
         }
         
         const visitHistory = [...prev.visitHistory, {
@@ -98,6 +107,7 @@ export function useViewTracking(storyId) {
         return {
           ...prev,
           revisitCounts,
+          visitedNodeIds,
           visitHistory,
           lastActiveNode: nodeId,
           lastActiveTime: now
@@ -127,7 +137,7 @@ export function useViewTracking(storyId) {
     }))
     
     nodeArray.sort((a, b) => b.count - a.count)
-    return nodeArray.slice(0, limit).filter(n => n.count > 1)
+    return nodeArray.slice(0, limit).filter(n => n.count > 0)
   }, [trackingData.revisitCounts])
 
   const getChapterVisits = useCallback(() => {
@@ -158,7 +168,7 @@ export function useViewTracking(storyId) {
     return {
       totalTime: trackingData.totalTime,
       totalTimeFormatted: formatDuration(trackingData.totalTime),
-      nodesVisited: Object.keys(trackingData.nodeDurations).length,
+      nodesVisited: trackingData.visitedNodeIds.length,
       topByTime,
       mostRevisited,
       chapterVisits,
@@ -170,6 +180,7 @@ export function useViewTracking(storyId) {
     const newData = {
       nodeDurations: {},
       revisitCounts: {},
+      visitedNodeIds: [],
       visitHistory: [],
       totalTime: 0,
       lastActiveNode: null,
