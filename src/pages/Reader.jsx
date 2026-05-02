@@ -19,8 +19,7 @@ function Reader() {
   const [chartKey, setChartKey] = useState(0)
   const [showBackToTop, setShowBackToTop] = useState(false)
   
-  const [currentInsight, setCurrentInsight] = useState(null)
-  const [showInsight, setShowInsight] = useState(false)
+  const [hiddenInsightNodes, setHiddenInsightNodes] = useState(new Set())
   
   const {
     startTrackingNode,
@@ -167,32 +166,32 @@ function Reader() {
         }
         
         startTrackingNode(currentNode.id, currentNode.type, nodeTitle)
-        
-        if (currentNode.type === 'chart' && currentNode.chartConfig && story) {
-          const dataset = story.datasets?.find(d => d.id === currentNode.chartConfig.datasetId)
-          if (dataset && dataset.data) {
-            let data = dataset.data
-            if (currentNode.chartConfig.filters && currentNode.chartConfig.filters.length > 0) {
-              data = data.filter(item => {
-                return currentNode.chartConfig.filters.every(filter => {
-                  const [key, value] = Object.entries(filter)[0]
-                  return item[key] === value
-                })
-              })
-            }
-            
-            const insight = generateDataInsight(data, currentNode.chartConfig)
-            if (insight) {
-              setCurrentInsight(insight)
-              setShowInsight(true)
-            }
-          }
-        } else {
-          setShowInsight(false)
-        }
       }
     }
-  }, [currentNodeIndex, filteredNodes, story, startTrackingNode])
+  }, [currentNodeIndex, filteredNodes, startTrackingNode])
+
+  const getNodeInsight = useCallback((node) => {
+    if (node.type !== 'chart' || !node.chartConfig || !story) return null
+    
+    const dataset = story.datasets?.find(d => d.id === node.chartConfig.datasetId)
+    if (!dataset || !dataset.data) return null
+    
+    let data = dataset.data
+    if (node.chartConfig.filters && node.chartConfig.filters.length > 0) {
+      data = data.filter(item => {
+        return node.chartConfig.filters.every(filter => {
+          const [key, value] = Object.entries(filter)[0]
+          return item[key] === value
+        })
+      })
+    }
+    
+    return generateDataInsight(data, node.chartConfig)
+  }, [story])
+
+  const handleCloseInsight = useCallback((nodeId) => {
+    setHiddenInsightNodes(prev => new Set([...prev, nodeId]))
+  }, [])
 
   const handleBranchSelect = (branchNode, option) => {
     setBranchDecisions(prev => ({
@@ -209,7 +208,7 @@ function Reader() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const renderChart = (node) => {
+  const renderChart = (node, isActive) => {
     const config = node.chartConfig
     if (!config) return null
 
@@ -242,7 +241,28 @@ function Reader() {
       animation: config.animation
     }
 
-    switch (config.chartType) {
+    const insight = getNodeInsight(node)
+    const showInsightForNode = isActive && insight && !hiddenInsightNodes.has(node.id)
+
+    return (
+      <div className="relative w-full">
+        {renderChartByType(config.chartType, chartProps)}
+        
+        {showInsightForNode && (
+          <DataInsightTooltip
+            insight={insight}
+            isVisible={true}
+            onClose={() => handleCloseInsight(node.id)}
+            autoCloseDelay={10000}
+            position="right"
+          />
+        )}
+      </div>
+    )
+  }
+
+  const renderChartByType = (chartType, chartProps) => {
+    switch (chartType) {
       case 'bar':
         return <BarChart key={chartKey} {...chartProps} />
       case 'line':
@@ -417,12 +437,6 @@ function Reader() {
         </div>
       </div>
 
-      <DataInsightTooltip 
-        insight={currentInsight} 
-        isVisible={showInsight}
-        position="right"
-      />
-
       <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
         <AnimatePresence mode="popLayout">
           {filteredNodes.map((node, index) => {
@@ -464,7 +478,7 @@ function Reader() {
 
                   {node.type === 'chart' && (
                     <div className="w-full">
-                      {renderChart(node)}
+                      {renderChart(node, isActive)}
                     </div>
                   )}
 
