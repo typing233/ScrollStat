@@ -3,7 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { storage } from '../data/storage'
 import { useScrollProgress } from '../hooks/useScrollProgress'
+import { useViewTracking } from '../hooks/useViewTracking'
 import { BarChart, LineChart, ScatterChart } from '../components/charts'
+import { generateDataInsight } from '../utils/dataInsight'
+import DataInsightTooltip from '../components/DataInsightTooltip'
+import ViewSummaryPanel from '../components/ViewSummaryPanel'
 
 function Reader() {
   const { id } = useParams()
@@ -14,6 +18,15 @@ function Reader() {
   const { progress, currentNodeIndex, setNodeRef } = useScrollProgress()
   const [chartKey, setChartKey] = useState(0)
   const [showBackToTop, setShowBackToTop] = useState(false)
+  
+  const [currentInsight, setCurrentInsight] = useState(null)
+  const [showInsight, setShowInsight] = useState(false)
+  
+  const {
+    startTrackingNode,
+    getSummary,
+    resetTracking
+  } = useViewTracking(id || 'default')
 
   useEffect(() => {
     const storyData = storage.getStory(id)
@@ -141,6 +154,46 @@ function Reader() {
     }
   }, [filteredNodes])
 
+  useEffect(() => {
+    if (filteredNodes.length > 0 && currentNodeIndex >= 0) {
+      const currentNode = filteredNodes[currentNodeIndex]
+      if (currentNode) {
+        let nodeTitle = ''
+        if (currentNode.type === 'chart' && currentNode.chartConfig?.title) {
+          nodeTitle = currentNode.chartConfig.title
+        } else if (currentNode.type === 'text') {
+          const match = currentNode.content?.match(/^#+\s*(.+)$/m)
+          if (match) nodeTitle = match[1]
+        }
+        
+        startTrackingNode(currentNode.id, currentNode.type, nodeTitle)
+        
+        if (currentNode.type === 'chart' && currentNode.chartConfig && story) {
+          const dataset = story.datasets?.find(d => d.id === currentNode.chartConfig.datasetId)
+          if (dataset && dataset.data) {
+            let data = dataset.data
+            if (currentNode.chartConfig.filters && currentNode.chartConfig.filters.length > 0) {
+              data = data.filter(item => {
+                return currentNode.chartConfig.filters.every(filter => {
+                  const [key, value] = Object.entries(filter)[0]
+                  return item[key] === value
+                })
+              })
+            }
+            
+            const insight = generateDataInsight(data, currentNode.chartConfig)
+            if (insight) {
+              setCurrentInsight(insight)
+              setShowInsight(true)
+            }
+          }
+        } else {
+          setShowInsight(false)
+        }
+      }
+    }
+  }, [currentNodeIndex, filteredNodes, story, startTrackingNode])
+
   const handleBranchSelect = (branchNode, option) => {
     setBranchDecisions(prev => ({
       ...prev,
@@ -186,19 +239,18 @@ function Reader() {
       secondaryYAxis: config.secondaryYAxis,
       title: config.title,
       description: config.description,
-      animation: config.animation,
-      key: chartKey
+      animation: config.animation
     }
 
     switch (config.chartType) {
       case 'bar':
-        return <BarChart {...chartProps} />
+        return <BarChart key={chartKey} {...chartProps} />
       case 'line':
-        return <LineChart {...chartProps} />
+        return <LineChart key={chartKey} {...chartProps} />
       case 'scatter':
-        return <ScatterChart {...chartProps} />
+        return <ScatterChart key={chartKey} {...chartProps} />
       default:
-        return <BarChart {...chartProps} />
+        return <BarChart key={chartKey} {...chartProps} />
     }
   }
 
@@ -329,6 +381,8 @@ function Reader() {
     )
   }
 
+  const viewSummary = getSummary()
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <div className="fixed top-0 left-0 right-0 h-1 bg-gray-200 z-50">
@@ -353,9 +407,21 @@ function Reader() {
           <h1 className="text-sm font-medium text-gray-700 truncate max-w-xs">
             {story.title}
           </h1>
-          <div className="w-16"></div>
+          <div className="flex items-center gap-2">
+            <ViewSummaryPanel 
+              summary={viewSummary} 
+              onReset={resetTracking}
+              nodes={filteredNodes}
+            />
+          </div>
         </div>
       </div>
+
+      <DataInsightTooltip 
+        insight={currentInsight} 
+        isVisible={showInsight}
+        position="right"
+      />
 
       <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
         <AnimatePresence mode="popLayout">
